@@ -29,7 +29,7 @@ async function getDbPassword() {
     // Get password from AWS Secrets Manager
     const AWS = require('aws-sdk');
     const secretsManager = new AWS.SecretsManager({ region: process.env.AWS_REGION || 'eu-west-1' });
-    
+
     try {
       const result = await secretsManager.getSecretValue({ SecretId: process.env.DB_SECRET_ARN }).promise();
       const secret = JSON.parse(result.SecretString);
@@ -47,7 +47,7 @@ let pool;
 getDbPassword().then(password => {
   // Check if this is AWS environment (has RDS endpoint)
   const isAWS = dbHostname.includes('.rds.amazonaws.com');
-  
+
   pool = new Pool({
     host: dbHostname,
     user: process.env.DB_USER || 'iotuser',
@@ -57,7 +57,7 @@ getDbPassword().then(password => {
     // Enable SSL for AWS RDS
     ssl: isAWS ? { rejectUnauthorized: false } : false
   });
-  
+
   // Test database connection after pool is created
   testDatabaseConnection();
 }).catch(err => {
@@ -79,11 +79,11 @@ function testDatabaseConnection() {
     console.log('Database pool not initialized yet');
     return;
   }
-  
+
   pool.connect()
     .then(client => {
       console.log(`Connected to PostgreSQL database at ${dbHostname}:${dbPort}`);
-      
+
       // Create messages table if it doesn't exist
       client.query(`
         CREATE TABLE IF NOT EXISTS messages (
@@ -92,14 +92,14 @@ function testDatabaseConnection() {
           timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `)
-      .then(() => {
-        console.log('Messages table ready');
-        client.release();
-      })
-      .catch(err => {
-        console.error('Table creation error:', err);
-        client.release();
-      });
+        .then(() => {
+          console.log('Messages table ready');
+          client.release();
+        })
+        .catch(err => {
+          console.error('Table creation error:', err);
+          client.release();
+        });
     })
     .catch(err => {
       console.error('Database connection error:', err);
@@ -114,15 +114,15 @@ let mqttClient;
 if (mqttHost.includes('.iot.') && mqttHost.includes('.amazonaws.com')) {
   // AWS IoT Core MQTT connection using WebSocket + IRSA
   console.log(`Connecting to AWS IoT Core: ${mqttHost}`);
-  
+
   const AWS = require('aws-sdk');
   const awsIot = require('aws-iot-device-sdk');
-  
+
   // Get credentials from IRSA
   const credentials = new AWS.CredentialProviderChain().resolvePromise()
     .then(creds => {
       console.log('AWS credentials resolved successfully');
-      
+
       // Use WebSocket connection with explicit credentials
       mqttClient = awsIot.device({
         protocol: 'wss',
@@ -133,18 +133,18 @@ if (mqttHost.includes('.iot.') && mqttHost.includes('.amazonaws.com')) {
         secretKey: creds.secretAccessKey,
         sessionToken: creds.sessionToken
       });
-      
+
       // Set up MQTT handlers
       setupMqttHandlers();
     })
     .catch(err => {
       console.error('Failed to resolve AWS credentials:', err);
       // Create mock client to prevent crashes
-      mqttClient = { on: () => {}, subscribe: () => {} };
+      mqttClient = { on: () => { }, subscribe: () => { } };
     });
-    
+
   // Create temporary mock client until credentials are resolved
-  mqttClient = { on: () => {}, subscribe: () => {} };
+  mqttClient = { on: () => { }, subscribe: () => { } };
 } else {
   // Local Mosquitto connection
   console.log(`Connecting to local MQTT broker: ${mqttHost}`);
@@ -154,7 +154,7 @@ if (mqttHost.includes('.iot.') && mqttHost.includes('.amazonaws.com')) {
 // Function to set up MQTT handlers
 function setupMqttHandlers() {
   if (!mqttClient || typeof mqttClient.on !== 'function') return;
-  
+
   mqttClient.on('connect', () => {
     console.log('Connected to MQTT broker');
     mqttClient.subscribe('iot/data', (err) => {
@@ -198,3 +198,5 @@ app.get('/metrics', async (req, res) => {
 app.listen(port, () => {
   console.log(`Backend service running on port ${port}`);
 });
+
+// test deploy
