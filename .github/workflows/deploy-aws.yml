@@ -35,15 +35,14 @@ jobs:
           aws sts get-caller-identity
           echo "AWS Region: ${{ env.AWS_REGION }}"
 
-      - name: Get Terraform outputs
+      - name: Set infrastructure outputs from secrets
         id: terraform
         run: |
-          cd terraform
-          echo "ecr_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
-          echo "rds_endpoint=$(terraform output -raw rds_endpoint)" >> $GITHUB_OUTPUT
-          echo "iot_endpoint=$(terraform output -raw iot_endpoint)" >> $GITHUB_OUTPUT
-          echo "iot_role_arn=$(terraform output -raw iot_role_arn)" >> $GITHUB_OUTPUT
-          echo "secret_arn=$(terraform output -raw db_secret_arn)" >> $GITHUB_OUTPUT
+          echo "ecr_url=${{ secrets.ECR_REPOSITORY_URL }}" >> $GITHUB_OUTPUT
+          echo "rds_endpoint=${{ secrets.RDS_ENDPOINT }}" >> $GITHUB_OUTPUT
+          echo "iot_endpoint=${{ secrets.IOT_ENDPOINT }}" >> $GITHUB_OUTPUT
+          echo "iot_role_arn=${{ secrets.IOT_ROLE_ARN }}" >> $GITHUB_OUTPUT
+          echo "secret_arn=${{ secrets.DB_SECRET_ARN }}" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         run: |

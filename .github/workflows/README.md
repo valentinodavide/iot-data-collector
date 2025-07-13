@@ -10,9 +10,13 @@ Automated deployment pipeline for the IoT Data Collector system using GitHub Act
 
 ### Prerequisites
 1. **Infrastructure deployed** via `./deploy.sh aws-infra`
-2. **GitHub Secrets configured** (choose one approach):
-   - **Option A (Simple)**: `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`
-   - **Option B (Secure)**: GitHub OIDC with IAM role (recommended for production)
+2. **GitHub Secrets configured**:
+   - `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`
+   - `ECR_REPOSITORY_URL` (from terraform output)
+   - `RDS_ENDPOINT` (from terraform output)
+   - `IOT_ENDPOINT` (from terraform output) 
+   - `IOT_ROLE_ARN` (from terraform output)
+   - `DB_SECRET_ARN` (from terraform output)
 
 ### Pipeline Steps
 1. **Build**: Docker image with timestamp tag
