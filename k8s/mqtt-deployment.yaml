@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mqtt
+  namespace: iot-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mqtt
+  template:
+    metadata:
+      labels:
+        app: mqtt
+    spec:
+      containers:
+      - name: mqtt
+        image: eclipse-mosquitto
+        ports:
+        - containerPort: 1883
+        volumeMounts:
+        - name: config
+          mountPath: /mosquitto/config/mosquitto.conf
+          subPath: mosquitto.conf
+      volumes:
+      - name: config
+        configMap:
+          name: mqtt-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mqtt-service
+  namespace: iot-system
+spec:
+  selector:
+    app: mqtt
+  ports:
+  - port: 1883
+    targetPort: 1883
+  type: NodePort
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mqtt-config
+  namespace: iot-system
+data:
+  mosquitto.conf: |
+    listener 1883
+    allow_anonymous true

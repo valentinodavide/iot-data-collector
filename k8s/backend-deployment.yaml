@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iot-backend
+  namespace: iot-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: iot-backend
+  template:
+    metadata:
+      labels:
+        app: iot-backend
+    spec:
+      serviceAccountName: ${SERVICE_ACCOUNT}
+      containers:
+        - name: backend
+          image: ${BACKEND_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DB_HOST
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: password
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DB_NAME
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: AWS_REGION
+                  optional: true
+            - name: DB_SECRET_ARN
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DB_SECRET_ARN
+                  optional: true
+            - name: MQTT_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: MQTT_HOST
+                  optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: iot-system
+spec:
+  selector:
+    app: iot-backend
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: LoadBalancer

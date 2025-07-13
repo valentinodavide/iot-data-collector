@@ -1,0 +1,82 @@
+name: Deploy to AWS EKS
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - 'backend/**'
+      - 'k8s/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-1
+  EKS_CLUSTER_NAME: iot-collector
+
+jobs:
+  deploy:
+    name: Deploy Application to AWS
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Get Terraform outputs
+      id: terraform
+      run: |
+        cd terraform
+        echo "ecr_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
+        echo "rds_endpoint=$(terraform output -raw rds_endpoint)" >> $GITHUB_OUTPUT
+        echo "iot_endpoint=$(terraform output -raw iot_endpoint)" >> $GITHUB_OUTPUT
+        echo "iot_role_arn=$(terraform output -raw iot_role_arn)" >> $GITHUB_OUTPUT
+        echo "secret_arn=$(terraform output -raw db_secret_arn)" >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image
+      run: |
+        TIMESTAMP=$(date +%s)
+        
+        # Build image
+        docker build --platform linux/amd64 -t iot-backend ./backend
+        
+        # Login to ECR
+        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.terraform.outputs.ecr_url }}
+        
+        # Tag and push
+        docker tag iot-backend:latest ${{ steps.terraform.outputs.ecr_url }}:latest
+        docker tag iot-backend:latest ${{ steps.terraform.outputs.ecr_url }}:${TIMESTAMP}
+        docker push ${{ steps.terraform.outputs.ecr_url }}:latest
+        docker push ${{ steps.terraform.outputs.ecr_url }}:${TIMESTAMP}
+        
+        echo "IMAGE_TAG=${TIMESTAMP}" >> $GITHUB_ENV
+
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+    - name: Deploy to EKS
+      run: |
+        # Set environment variables for envsubst
+        export BACKEND_IMAGE="${{ steps.terraform.outputs.ecr_url }}:${IMAGE_TAG}"
+        export RDS_ENDPOINT="${{ steps.terraform.outputs.rds_endpoint }}"
+        export IOT_ENDPOINT="${{ steps.terraform.outputs.iot_endpoint }}"
+        export IOT_ROLE_ARN="${{ steps.terraform.outputs.iot_role_arn }}"
+        export SECRET_ARN="${{ steps.terraform.outputs.secret_arn }}"
+        export AWS_REGION="${{ env.AWS_REGION }}"
+        export SERVICE_ACCOUNT="iot-backend"
+        
+        # Apply Kubernetes manifests
+        envsubst < k8s/service-account.yaml | kubectl apply -f -
+        envsubst < k8s/configmap-aws.yaml | kubectl apply -f -
+        envsubst < k8s/backend-deployment.yaml | kubectl apply -f -
+
+    - name: Verify deployment
+      run: |
+        kubectl rollout status deployment/iot-backend -n iot-system --timeout=300s
+        kubectl get pods -n iot-system -l app=iot-backend
