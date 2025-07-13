@@ -24,7 +24,6 @@ This project implements a complete IoT ingestion pipeline with both local develo
 - `k8s/`: Kubernetes manifests
 - `terraform/`: AWS infrastructure as code
 - `deploy.sh`: Unified deployment script
-- `.github/workflows/`: CI/CD pipeline
 
 
 ## 📦 Architecture
@@ -288,6 +287,6 @@ This AWS Pricing Calculator contains the main cost voices for the production env
 | **Container Platform** | minikube | Amazon EKS | Kubernetes provides production-grade orchestration and scaling |
 | **Monitoring** | Prometheus + Grafana | Same (on EKS) | Industry standard, cloud-native monitoring stack |
 | **Infrastructure** | Manual | Terraform | Infrastructure as Code for reproducible, version-controlled deployments |
-| **CI/CD** | Manual | GitHub Actions | Automated building and deployment pipeline |
+| **CI/CD** | Manual | Manual | Manual deployment via deploy.sh script |
 
 ---

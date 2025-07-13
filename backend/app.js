@@ -198,5 +198,3 @@ app.get('/metrics', async (req, res) => {
 app.listen(port, () => {
   console.log(`Backend service running on port ${port}`);
 });
-
-// test deploy

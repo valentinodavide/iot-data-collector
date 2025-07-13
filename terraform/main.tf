@@ -8,27 +8,13 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.1"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.20"
-    }
+
   }
   required_version = ">= 1.0"
 }
 
 provider "aws" {
   region = var.aws_region
-}
-
-provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  
-  exec {
-    api_version = "client.authentication.k8s.io/v1beta1"
-    command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
-  }
 }
 
 # Get current AWS account ID
@@ -264,28 +250,6 @@ resource "aws_iam_role" "rds_monitoring" {
 resource "aws_iam_role_policy_attachment" "rds_monitoring" {
   role       = aws_iam_role.rds_monitoring.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
-}
-
-# AWS Auth ConfigMap to add GitHub Actions IAM user
-resource "kubernetes_config_map_v1_data" "aws_auth" {
-  depends_on = [module.eks]
-  
-  metadata {
-    name      = "aws-auth"
-    namespace = "kube-system"
-  }
-  
-  data = {
-    mapUsers = yamlencode([
-      {
-        userarn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/personal-github"
-        username = "github-actions"
-        groups   = ["system:masters"]
-      }
-    ])
-  }
-  
-  force = true
 }
 
 # For demo: Use AWS Console MQTT test client to publish to 'iot/data' topic
