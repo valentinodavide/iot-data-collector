@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.1"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.20"
+    }
   }
   required_version = ">= 1.0"
 }
@@ -15,6 +19,20 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
+
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+  }
+}
+
+# Get current AWS account ID
+data "aws_caller_identity" "current" {}
 
 # EKS Cluster
 module "eks" {
@@ -31,6 +49,8 @@ module "eks" {
 
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
+
+
 
   eks_managed_node_groups = {
     main = {
@@ -124,7 +144,7 @@ resource "aws_db_instance" "iot_db" {
 
   vpc_security_group_ids = [aws_security_group.rds.id]
   db_subnet_group_name   = aws_db_subnet_group.main.name
-  
+
   # SSL Configuration
   ca_cert_identifier = "rds-ca-rsa2048-g1"
 
@@ -146,9 +166,9 @@ resource "aws_ecr_repository" "iot_backend" {
   image_scanning_configuration {
     scan_on_push = true
   }
-  
+
   encryption_configuration {
-    encryption_type = "AES256"  # AWS-managed encryption
+    encryption_type = "AES256" # AWS-managed encryption
   }
 }
 
@@ -244,6 +264,28 @@ resource "aws_iam_role" "rds_monitoring" {
 resource "aws_iam_role_policy_attachment" "rds_monitoring" {
   role       = aws_iam_role.rds_monitoring.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+}
+
+# AWS Auth ConfigMap to add GitHub Actions IAM user
+resource "kubernetes_config_map_v1_data" "aws_auth" {
+  depends_on = [module.eks]
+  
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+  
+  data = {
+    mapUsers = yamlencode([
+      {
+        userarn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/personal-github"
+        username = "github-actions"
+        groups   = ["system:masters"]
+      }
+    ])
+  }
+  
+  force = true
 }
 
 # For demo: Use AWS Console MQTT test client to publish to 'iot/data' topic
